@@ -12,10 +12,10 @@
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-[![GitHub stars](https://img.shields.io/github/stars/brightlyvirya/pg-hybrid-search?style=social)](https://github.com/brightlyvirya/pg-hybrid-search/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/brightlyvirya/pg-hybrid-search?style=social)](https://github.com/brightlyvirya/pg-hybrid-search/network/members)
-[![GitHub issues](https://img.shields.io/github/issues/brightlyvirya/pg-hybrid-search)](https://github.com/brightlyvirya/pg-hybrid-search/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/brightlyvirya/pg-hybrid-search)](https://github.com/brightlyvirya/pg-hybrid-search/pulls)
+[![GitHub stars](https://img.shields.io/github/stars/Brightlyviryaa/pg-hybrid-search?style=social)](https://github.com/Brightlyviryaa/pg-hybrid-search/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Brightlyviryaa/pg-hybrid-search?style=social)](https://github.com/Brightlyviryaa/pg-hybrid-search/network/members)
+[![GitHub issues](https://img.shields.io/github/issues/Brightlyviryaa/pg-hybrid-search)](https://github.com/Brightlyviryaa/pg-hybrid-search/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/Brightlyviryaa/pg-hybrid-search)](https://github.com/Brightlyviryaa/pg-hybrid-search/pulls)
 
 ---
 
@@ -461,7 +461,7 @@ setInterval(() => {
 
 ```bash
 # Clone the repository
-git clone https://github.com/brightlyvirya/pg-hybrid-search.git
+git clone https://github.com/Brightlyviryaa/pg-hybrid-search.git
 cd pg-hybrid-search
 
 # Install dependencies
@@ -524,8 +524,8 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Ways to Contribute
 
-- 🐛 **Bug Reports**: Found an issue? [Create an issue](https://github.com/brightlyvirya/pg-hybrid-search/issues/new?template=bug_report.md)
-- ✨ **Feature Requests**: Have an idea? [Submit a feature request](https://github.com/brightlyvirya/pg-hybrid-search/issues/new?template=feature_request.md)
+- 🐛 **Bug Reports**: Found an issue? [Create an issue](https://github.com/Brightlyviryaa/pg-hybrid-search/issues/new?template=bug_report.md)
+- ✨ **Feature Requests**: Have an idea? [Submit a feature request](https://github.com/Brightlyviryaa/pg-hybrid-search/issues/new?template=feature_request.md)
 - 📝 **Documentation**: Improve docs, add examples, fix typos
 - 🔧 **Code**: Submit pull requests for bug fixes or new features
 
@@ -549,8 +549,8 @@ We welcome contributions from the community! Here's how you can help:
 Need help or want to connect with other users?
 
 - 📖 **Documentation**: You're reading it! Check the [API Reference](#-api-reference)
-- 🐛 **Issues**: [GitHub Issues](https://github.com/brightlyvirya/pg-hybrid-search/issues) for bugs and feature requests
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/brightlyvirya/pg-hybrid-search/discussions) for general questions
+- 🐛 **Issues**: [GitHub Issues](https://github.com/Brightlyviryaa/pg-hybrid-search/issues) for bugs and feature requests
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/Brightlyviryaa/pg-hybrid-search/discussions) for general questions
 - 📧 **Email**: Open an issue for direct support needs
 
 ### Troubleshooting
@@ -614,7 +614,7 @@ copies or substantial portions of the Software.
 
 ### 🌟 If this project helps you, please give it a star! 
 
-[![GitHub stars](https://img.shields.io/github/stars/brightlyvirya/pg-hybrid-search?style=social)](https://github.com/brightlyvirya/pg-hybrid-search/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/Brightlyviryaa/pg-hybrid-search?style=social)](https://github.com/Brightlyviryaa/pg-hybrid-search/stargazers)
 
 **Built with ❤️ for the Indonesian AI & Web3 community**
 

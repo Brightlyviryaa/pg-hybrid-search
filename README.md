@@ -79,7 +79,158 @@
 
 ## 🚀 Quick Start
 
-### Modern Client API (Recommended)
+### RAG Search with AI SDKs (Anthropic/OpenAI)
+
+Perfect for building AI assistants with retrieval-augmented generation:
+
+#### With Anthropic Claude SDK
+
+```typescript
+import { createClient } from '@brightly/pg-hybrid-search';
+import Anthropic from '@anthropic-ai/sdk';
+
+const client = createClient();
+const knowledge = client.index("knowledge-base");
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+// 1. Setup search tool for Claude
+const searchTool = {
+  name: "search_knowledge",
+  description: "Search the knowledge base for relevant information",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Search query" },
+      limit: { type: "number", description: "Number of results", default: 5 }
+    },
+    required: ["query"]
+  }
+};
+
+// 2. RAG-powered chat function
+async function ragChat(userMessage: string) {
+  const message = await anthropic.messages.create({
+    model: "claude-3-5-sonnet-20241022",
+    max_tokens: 1000,
+    tools: [searchTool],
+    messages: [{
+      role: "user",
+      content: userMessage
+    }]
+  });
+
+  // Handle tool calls
+  if (message.content[0].type === 'tool_use') {
+    const toolCall = message.content[0];
+    
+    // Execute search
+    const searchResults = await knowledge.search({
+      query: toolCall.input.query,
+      limit: toolCall.input.limit || 5,
+      reranking: true
+    });
+
+    // Continue conversation with search results
+    const followUp = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 1000,
+      messages: [
+        { role: "user", content: userMessage },
+        { role: "assistant", content: message.content },
+        {
+          role: "user",
+          content: [{
+            type: "tool_result",
+            tool_use_id: toolCall.id,
+            content: JSON.stringify(searchResults.map(r => r.raw_content))
+          }]
+        }
+      ]
+    });
+
+    return followUp.content[0].text;
+  }
+
+  return message.content[0].text;
+}
+
+// Usage
+const response = await ragChat("What are the latest developments in AI?");
+console.log(response);
+```
+
+#### With OpenAI SDK
+
+```typescript
+import { createClient } from '@brightly/pg-hybrid-search';
+import OpenAI from 'openai';
+
+const client = createClient();
+const docs = client.index("documentation");
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// 1. Define search function for OpenAI
+const searchFunction = {
+  name: "search_docs",
+  description: "Search documentation for relevant information",
+  parameters: {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "Search query" },
+      limit: { type: "number", description: "Number of results", default: 3 }
+    },
+    required: ["query"]
+  }
+};
+
+// 2. RAG chat with function calling
+async function ragChatGPT(userMessage: string) {
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: userMessage }],
+    functions: [searchFunction],
+    function_call: "auto"
+  });
+
+  const message = completion.choices[0].message;
+
+  if (message.function_call) {
+    // Execute search
+    const args = JSON.parse(message.function_call.arguments);
+    const searchResults = await docs.search({
+      query: args.query,
+      limit: args.limit,
+      reranking: true
+    });
+
+    // Continue with search results
+    const followUp = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "user", content: userMessage },
+        message,
+        {
+          role: "function",
+          name: "search_docs",
+          content: JSON.stringify(searchResults.map(r => r.raw_content))
+        }
+      ]
+    });
+
+    return followUp.choices[0].message.content;
+  }
+
+  return message.content;
+}
+
+// Usage
+const answer = await ragChatGPT("How do I implement vector search?");
+console.log(answer);
+```
+
+### Basic Library Usage
+
+#### Modern Client API (Recommended)
 
 ```typescript
 import { createClient } from '@brightly/pg-hybrid-search';
@@ -104,7 +255,7 @@ results.forEach(result => {
 });
 ```
 
-### Simplified Functional API (Also Available)
+#### Simplified Functional API (Also Available)
 
 ```typescript
 import { add, search } from '@brightly/pg-hybrid-search';

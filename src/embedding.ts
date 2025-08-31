@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+// Using built-in fetch API (Node.js 18+)
 
 export async function embedTextOpenAI(text: string): Promise<number[]> {
   const apiKey = process.env.OPENAI_API_KEY;

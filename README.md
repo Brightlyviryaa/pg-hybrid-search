@@ -29,6 +29,7 @@
 - [📦 Installation](#-installation)
 - [⚙️ Configuration](#️-configuration)
 - [📚 API Reference](#-api-reference)
+- [📖 Complete API Documentation](API_DOCUMENTATION.md) ⭐
 - [🖥 CLI Tools](#-cli-tools)
 - [💡 Usage Examples](#-usage-examples)
 - [🏗 Database Schema](#-database-schema)
@@ -162,6 +163,9 @@ psql -d your_database -c "SELECT COUNT(*) FROM vector_table;"
 ```
 
 ## 📚 API Reference
+
+> 📖 **[View Complete API Documentation →](API_DOCUMENTATION.md)**  
+> *Comprehensive guide with sequence diagrams, payload examples, and detailed usage patterns*
 
 ### Modern Client API (Recommended)
 

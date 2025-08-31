@@ -1,4 +1,3 @@
-import fetch from 'node-fetch';
 import { SearchResult, search } from './search.js';
 
 export interface Candidate {

@@ -1,0 +1,49 @@
+{
+  "name": "@brightly/pg-hybrid-search",
+  "version": "0.3.0",
+  "description": "Hybrid search toolkit for Postgres (pgvector + BM25 + rerank)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "pg-hybrid": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r src/sql dist/sql",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "postgres",
+    "postgresql",
+    "pgvector",
+    "vector-search",
+    "hybrid-search",
+    "embedding",
+    "full-text-search",
+    "bm25",
+    "rerank"
+  ],
+  "author": "Brightly Virya",
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.12.0",
+    "dotenv": "^16.4.5",
+    "commander": "^12.1.0",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@types/pg": "^8.11.6",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brightlyvirya/pg-hybrid-search.git"
+  },
+  "bugs": {
+    "url": "https://github.com/brightlyvirya/pg-hybrid-search/issues"
+  },
+  "homepage": "https://github.com/brightlyvirya/pg-hybrid-search#readme"
+}

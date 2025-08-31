@@ -11,12 +11,19 @@ export interface SearchResult {
   updated_at?: string;
 }
 
-export interface HybridWeights {
+export interface SearchWeights {
   vectorW: number;
   textW: number;
 }
 
-export async function upsertDocument(raw: string): Promise<string> {
+export interface SearchOptions {
+  query: string;
+  limit?: number;
+  vectorOnly?: boolean;
+  weights?: SearchWeights;
+}
+
+export async function add(raw: string): Promise<string> {
   return withClient(async c => {
     const emb = await embedTextOpenAI(raw);
     const res = await c.query(
@@ -27,33 +34,31 @@ export async function upsertDocument(raw: string): Promise<string> {
   });
 }
 
-export async function deleteById(id: string): Promise<void> {
+export async function remove(id: string): Promise<void> {
   return withClient(async c => {
     await c.query(`DELETE FROM vector_table WHERE id = $1`, [id]);
   });
 }
 
-export async function searchVector(query: string, k = 10): Promise<SearchResult[]> {
+export async function search(options: SearchOptions): Promise<SearchResult[]> {
+  const { query, limit = 10, vectorOnly = false, weights = { vectorW: 0.7, textW: 0.3 } } = options;
+  
   return withClient(async c => {
     const qvec = await embedTextOpenAI(query);
-    const res = await c.query(`
-      SELECT id, raw_content, created_at, updated_at,
-        1 - (embedding <=> $1::vector) AS cosine_sim
-      FROM vector_table
-      ORDER BY embedding <=> $1::vector
-      LIMIT $2
-    `, [qvec, k]);
-    return res.rows;
-  });
-}
-
-export async function searchHybrid(
-  query: string, 
-  k = 10, 
-  weights: HybridWeights = { vectorW: 0.7, textW: 0.3 }
-): Promise<SearchResult[]> {
-  return withClient(async c => {
-    const qvec = await embedTextOpenAI(query);
+    
+    if (vectorOnly) {
+      // Pure vector search
+      const res = await c.query(`
+        SELECT id, raw_content, created_at, updated_at,
+          1 - (embedding <=> $1::vector) AS cosine_sim
+        FROM vector_table
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2
+      `, [qvec, limit]);
+      return res.rows;
+    }
+    
+    // Hybrid search (default)
     const res = await c.query(`
       WITH scored AS (
         SELECT id, raw_content, created_at, updated_at,
@@ -72,7 +77,16 @@ export async function searchHybrid(
       FROM normed
       ORDER BY hybrid_score DESC
       LIMIT $5
-    `, [qvec, query, weights.vectorW, weights.textW, k]);
+    `, [qvec, query, weights.vectorW, weights.textW, limit]);
     return res.rows;
   });
+}
+
+// Legacy functions for backward compatibility
+export async function upsertDocument(raw: string): Promise<string> {
+  return add(raw);
+}
+
+export async function deleteById(id: string): Promise<void> {
+  return remove(id);
 }

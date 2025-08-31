@@ -77,21 +77,38 @@
 
 ## 🚀 Quick Start
 
+### Modern Client API (Recommended)
+
 ```typescript
-import { upsertDocument, searchHybrid } from '@brightly/pg-hybrid-search';
+import { createClient } from '@brightly/pg-hybrid-search';
+
+const client = createClient();
 
 // 1. Insert documents with automatic embedding generation
-await upsertDocument("Machine learning revolutionizes data analysis");
-await upsertDocument("PostgreSQL provides excellent full-text search");
+await client.index("documents").add("Machine learning revolutionizes data analysis");
+await client.index("documents").add("PostgreSQL provides excellent full-text search");
 
-// 2. Perform hybrid search combining vector + text search
-const results = await searchHybrid("AI data analysis", 5);
+// 2. AI-powered semantic search with reranking
+const results = await client.index("documents").search({
+  query: "AI data analysis", 
+  limit: 5,
+  reranking: true
+});
 
 // 3. Results include relevance scores and original content
 results.forEach(result => {
-  console.log(`Score: ${result.hybrid_score}`);
+  console.log(`Score: ${result.hybrid_score || result.rerank_score}`);
   console.log(`Content: ${result.raw_content}`);
 });
+```
+
+### Simplified Functional API (Also Available)
+
+```typescript
+import { add, search } from '@brightly/pg-hybrid-search';
+
+await add("Machine learning revolutionizes data analysis");
+const results = await search({ query: "AI data analysis", limit: 5 });
 ```
 
 ## 📦 Installation
@@ -145,30 +162,94 @@ psql -d your_database -c "SELECT COUNT(*) FROM vector_table;"
 
 ## 📚 API Reference
 
-### Core Functions
+### Modern Client API (Recommended)
+
+#### Creating a Client
+
+```typescript
+import { createClient } from '@brightly/pg-hybrid-search';
+
+const client = createClient();
+```
+
+#### Index Operations
+
+```typescript
+// Get an index reference
+const index = client.index("your-index-name");
+
+// Add documents
+const documentId = await index.add("Your document content");
+
+// Remove documents  
+await index.remove(documentId);
+```
+
+#### Search Operations
+
+```typescript
+// Hybrid search (default)
+const results = await index.search({
+  query: "your search query",
+  limit: 10,                // Optional: number of results (default: 10)
+  reranking: true,          // Optional: enable AI reranking (default: false)
+  weights: {                // Optional: custom hybrid weights
+    vectorW: 0.7,
+    textW: 0.3
+  },
+  topNForRerank: 50        // Optional: candidates for reranking (default: 50)
+});
+
+// Pure vector search
+const vectorResults = await index.search({
+  query: "your search query",
+  limit: 10,
+  vectorOnly: true         // Enable vector-only mode
+});
+```
+
+#### Search Options Interface
+
+```typescript
+interface ClientSearchOptions {
+  query: string;           // Search query text
+  limit?: number;          // Number of results to return
+  reranking?: boolean;     // Enable AI-powered reranking
+  vectorOnly?: boolean;    // Use vector search only (no BM25)
+  weights?: SearchWeights; // Custom scoring weights
+  topNForRerank?: number;  // Candidates to consider for reranking
+}
+
+interface SearchWeights {
+  vectorW: number;         // Vector search weight (0-1)
+  textW: number;           // Text search weight (0-1)
+}
+```
+
+---
+
+### Simplified Functional API
 
 #### Import Statement
 ```typescript
 import {
-  upsertDocument,
-  deleteById,
-  searchVector,
-  searchHybrid,
-  searchHybridWithRerank,
-  rerankVoyage,
+  add,
+  remove,
+  search,
   type SearchResult,
-  type HybridWeights
+  type SearchWeights,
+  type SearchOptions
 } from '@brightly/pg-hybrid-search';
 ```
 
 ---
 
-#### `upsertDocument(content: string): Promise<string>`
+#### `add(content: string): Promise<string>`
 
 Insert a new document with automatic embedding generation.
 
 ```typescript
-const documentId = await upsertDocument(
+const documentId = await add(
   "Artificial intelligence transforms modern business operations"
 );
 console.log(`Document inserted with ID: ${documentId}`);
@@ -181,73 +262,50 @@ console.log(`Document inserted with ID: ${documentId}`);
 
 ---
 
-#### `searchVector(query: string, k?: number): Promise<SearchResult[]>`
+#### `search(options: SearchOptions): Promise<SearchResult[]>`
 
-Perform pure vector similarity search using cosine distance.
+Unified search function that supports both vector-only and hybrid search modes.
 
 ```typescript
-const vectorResults = await searchVector("machine learning algorithms", 10);
-vectorResults.forEach(result => {
-  console.log(`Similarity: ${result.cosine_sim?.toFixed(4)}`);
-  console.log(`Content: ${result.raw_content}`);
+// Hybrid search (default)
+const hybridResults = await search({
+  query: "AI machine learning",
+  limit: 5,
+  weights: { vectorW: 0.7, textW: 0.3 }
+});
+
+// Vector-only search
+const vectorResults = await search({
+  query: "machine learning algorithms",
+  limit: 10,
+  vectorOnly: true
 });
 ```
 
 **Parameters**:
-- `query` (string): Search query text
-- `k` (number, optional): Number of results to return (default: 10)
+- `options.query` (string): Search query text
+- `options.limit` (number, optional): Number of results (default: 10)
+- `options.vectorOnly` (boolean, optional): Use vector search only (default: false)
+- `options.weights` (SearchWeights, optional): Scoring weights (default: `{vectorW: 0.7, textW: 0.3}`)
 
 ---
 
-#### `searchHybrid(query: string, k?: number, weights?: HybridWeights): Promise<SearchResult[]>`
-
-Combine vector similarity and BM25 full-text search with normalized scoring.
-
-```typescript
-const hybridResults = await searchHybrid("AI machine learning", 5, {
-  vectorW: 0.7,  // Vector search weight
-  textW: 0.3     // Text search weight
-});
-
-hybridResults.forEach(result => {
-  console.log(`Hybrid Score: ${result.hybrid_score?.toFixed(4)}`);
-  console.log(`Vector Score: ${result.cosine_sim?.toFixed(4)}`);
-  console.log(`Text Score: ${result.ts_score?.toFixed(4)}`);
-});
-```
-
-**Parameters**:
-- `query` (string): Search query text  
-- `k` (number, optional): Number of results (default: 10)
-- `weights` (HybridWeights, optional): Scoring weights (default: `{vectorW: 0.7, textW: 0.3}`)
-
----
-
-#### `searchHybridWithRerank(query: string, k?: number, topN?: number): Promise<SearchResult[]>`
-
-End-to-end pipeline: hybrid search → AI reranking → top-k results.
-
-```typescript
-const rerankedResults = await searchHybridWithRerank(
-  "sustainable AI development", 
-  10,   // Final number of results
-  50    // Number of candidates to rerank
-);
-```
-
-**Parameters**:
-- `query` (string): Search query text
-- `k` (number, optional): Final number of results (default: 10) 
-- `topN` (number, optional): Candidates for reranking (default: 50)
-
----
-
-#### `deleteById(id: string): Promise<void>`
+#### `remove(id: string): Promise<void>`
 
 Remove a document by its UUID.
 
 ```typescript
-await deleteById("123e4567-e89b-12d3-a456-426614174000");
+await remove("123e4567-e89b-12d3-a456-426614174000");
+```
+
+#### Legacy Functions (Still Available)
+
+```typescript
+// Legacy functions for backward compatibility
+import { upsertDocument, deleteById } from '@brightly/pg-hybrid-search';
+
+await upsertDocument("content");  // Same as add()
+await deleteById("uuid");         // Same as remove()
 ```
 
 ### Type Definitions
@@ -300,43 +358,120 @@ npx @brightly/pg-hybrid-search help
 
 ## 💡 Usage Examples
 
-### Basic Document Management
+### Modern Client API Examples
+
+#### Basic Document Management
 
 ```typescript
-import { upsertDocument, searchHybrid, deleteById } from '@brightly/pg-hybrid-search';
+import { createClient } from '@brightly/pg-hybrid-search';
+
+const client = createClient();
+const movies = client.index("movies");
 
 // Insert documents
 const docIds = await Promise.all([
-  upsertDocument("PostgreSQL is a powerful relational database"),
-  upsertDocument("Vector databases enable semantic search capabilities"),
-  upsertDocument("Full-text search provides keyword-based retrieval")
+  movies.add("Star Wars: A space opera epic with Jedi knights"),
+  movies.add("Blade Runner: Cyberpunk dystopian future with replicants"),
+  movies.add("The Matrix: Virtual reality and artificial intelligence thriller")
 ]);
 
-// Search with hybrid approach
-const results = await searchHybrid("database search capabilities", 3);
+// AI-powered semantic search with reranking
+const results = await movies.search({
+  query: "space opera with jedi",
+  limit: 5,
+  reranking: true
+});
+
+console.log(`Found ${results.length} relevant movies`);
+
+// Clean up
+await Promise.all(docIds.map(id => movies.remove(id)));
+```
+
+#### Advanced Search Scenarios
+
+```typescript
+// Semantic-focused search with custom weights
+const semanticResults = await movies.search({
+  query: "futuristic AI rebellion",
+  limit: 10,
+  weights: { vectorW: 0.9, textW: 0.1 }
+});
+
+// Keyword-focused search
+const keywordResults = await movies.search({
+  query: "cyberpunk dystopian",
+  limit: 10,
+  weights: { vectorW: 0.2, textW: 0.8 }
+});
+
+// High-precision search with reranking
+const precisionResults = await movies.search({
+  query: "epic space battles with lightsabers",
+  limit: 3,
+  reranking: true,
+  topNForRerank: 20
+});
+```
+
+#### Pure Vector Search
+
+```typescript
+// Vector similarity only
+const vectorResults = await movies.search({
+  query: "heroic journey in space",
+  limit: 5,
+  vectorOnly: true
+});
+```
+
+### Simplified Functional API Examples
+
+#### Basic Document Management
+
+```typescript
+import { add, search, remove } from '@brightly/pg-hybrid-search';
+
+// Insert documents
+const docIds = await Promise.all([
+  add("PostgreSQL is a powerful relational database"),
+  add("Vector databases enable semantic search capabilities"),
+  add("Full-text search provides keyword-based retrieval")
+]);
+
+// Search with hybrid approach (default)
+const results = await search({
+  query: "database search capabilities",
+  limit: 3
+});
 console.log(`Found ${results.length} relevant documents`);
 
 // Clean up
-await Promise.all(docIds.map(id => deleteById(id)));
+await Promise.all(docIds.map(id => remove(id)));
 ```
 
 ### Advanced Search Strategies
 
 ```typescript
 // Semantic-focused search (higher vector weight)
-const semanticResults = await searchHybrid("AI innovation", 10, {
-  vectorW: 0.9,
-  textW: 0.1
+const semanticResults = await search({
+  query: "AI innovation",
+  limit: 10,
+  weights: { vectorW: 0.9, textW: 0.1 }
 });
 
 // Keyword-focused search (higher text weight)
-const keywordResults = await searchHybrid("machine learning", 10, {
-  vectorW: 0.2, 
-  textW: 0.8
+const keywordResults = await search({
+  query: "machine learning",
+  limit: 10,
+  weights: { vectorW: 0.2, textW: 0.8 }
 });
 
-// Balanced hybrid search (default weights)
-const balancedResults = await searchHybrid("artificial intelligence");
+// Vector-only search
+const vectorResults = await search({
+  query: "artificial intelligence",
+  vectorOnly: true
+});
 ```
 
 ### Enterprise Pipeline with Reranking

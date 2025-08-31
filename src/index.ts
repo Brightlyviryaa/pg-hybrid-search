@@ -1,12 +1,14 @@
 export { pool, withClient } from './db.js';
 export { embedTextOpenAI } from './embedding.js';
 export { 
+  add, 
+  remove, 
+  search,
   upsertDocument, 
-  deleteById, 
-  searchVector, 
-  searchHybrid,
+  deleteById,
   type SearchResult,
-  type HybridWeights
+  type SearchWeights,
+  type SearchOptions
 } from './search.js';
 export { 
   rerankVoyage, 
@@ -14,3 +16,9 @@ export {
   type Candidate,
   type VoyageRerankResponse
 } from './rerank.js';
+export { 
+  createClient, 
+  PgHybridClient, 
+  PgHybridIndex,
+  type ClientSearchOptions
+} from './client.js';

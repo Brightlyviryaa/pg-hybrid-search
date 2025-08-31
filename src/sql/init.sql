@@ -13,6 +13,7 @@ END$;
 
 CREATE TABLE IF NOT EXISTS vector_table (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  index_name TEXT NOT NULL DEFAULT 'default',
   raw_content TEXT NOT NULL,
   embedding VECTOR(1536) NOT NULL,
   content_tsv TSVECTOR GENERATED ALWAYS AS (to_tsvector('simple', coalesce(raw_content,''))) STORED,
@@ -35,3 +36,6 @@ CREATE INDEX IF NOT EXISTS idx_vector_table_embedding
 
 CREATE INDEX IF NOT EXISTS idx_vector_table_tsv
   ON vector_table USING GIN (content_tsv);
+
+CREATE INDEX IF NOT EXISTS idx_vector_table_index_name
+  ON vector_table (index_name);

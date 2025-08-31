@@ -61,6 +61,7 @@
 - **Full-text Search**: PostgreSQL's powerful BM25 algorithm
 - **Hybrid Search**: Intelligent combination with custom weights
 - **AI Reranking**: Voyage Rerank v2 integration
+- **Multi-Index Support**: Isolated document collections for different use cases
 
 </td>
 <td width="50%">
@@ -520,9 +521,10 @@ console.log(`Inserted ${documentIds.length} documents`);
 The library automatically creates and manages the following schema:
 
 ```sql
--- Main table for storing documents and embeddings
+-- Main table for storing documents and embeddings with multi-index support
 CREATE TABLE vector_table (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  index_name TEXT NOT NULL DEFAULT 'default',
   raw_content TEXT NOT NULL,
   embedding VECTOR(1536) NOT NULL,
   content_tsv TSVECTOR GENERATED ALWAYS AS (
@@ -539,15 +541,19 @@ CREATE INDEX idx_vector_table_embedding
 
 CREATE INDEX idx_vector_table_tsv 
   ON vector_table USING GIN (content_tsv);
+
+CREATE INDEX idx_vector_table_index_name
+  ON vector_table (index_name);
 ```
 
 ### Schema Features
 
 - **UUID Primary Keys**: Globally unique identifiers
+- **Multi-Index Support**: Isolated document collections with `index_name` field
 - **Vector Storage**: 1536-dimensional embeddings (OpenAI standard)
 - **Generated TSVector**: Automatic full-text search indexing
 - **Timestamps**: Automatic creation and update tracking
-- **Optimized Indexes**: IVFFlat for vectors, GIN for text search
+- **Optimized Indexes**: IVFFlat for vectors, GIN for text search, B-tree for index names
 
 ## ⚡ Performance Optimization
 

@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { SearchResult, searchHybrid } from './search.js';
+import { SearchResult, search } from './search.js';
 
 export interface Candidate {
   text: string;
@@ -52,9 +52,14 @@ export async function rerankVoyage(query: string, candidates: Candidate[]): Prom
 export async function searchHybridWithRerank(
   query: string, 
   k = 10, 
-  topNForRerank = 50
+  topNForRerank = 50,
+  indexName = 'default'
 ): Promise<SearchResult[]> {
-  const hybridResults = await searchHybrid(query, topNForRerank);
+  const hybridResults = await search({
+    query,
+    limit: topNForRerank,
+    indexName
+  });
   
   if (hybridResults.length === 0) {
     return [];

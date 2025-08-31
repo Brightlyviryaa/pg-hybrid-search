@@ -15,25 +15,26 @@ export class PgHybridIndex {
   constructor(private indexName: string) {}
 
   async add(content: string): Promise<string> {
-    return add(content);
+    return add(content, this.indexName);
   }
 
   async remove(id: string): Promise<void> {
-    return remove(id);
+    return remove(id, this.indexName);
   }
 
   async search(options: ClientSearchOptions): Promise<SearchResult[]> {
     const { query, limit = 10, reranking = false, vectorOnly = false, weights, topNForRerank = 50 } = options;
     
     if (reranking) {
-      return searchHybridWithRerank(query, limit, topNForRerank);
+      return searchHybridWithRerank(query, limit, topNForRerank, this.indexName);
     }
     
     return search({
       query,
       limit,
       vectorOnly,
-      weights
+      weights,
+      indexName: this.indexName
     });
   }
 }

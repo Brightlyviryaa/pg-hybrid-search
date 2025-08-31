@@ -21,27 +21,32 @@ export interface SearchOptions {
   limit?: number;
   vectorOnly?: boolean;
   weights?: SearchWeights;
+  indexName?: string;
 }
 
-export async function add(raw: string): Promise<string> {
+export async function add(raw: string, indexName: string = 'default'): Promise<string> {
   return withClient(async c => {
     const emb = await embedTextOpenAI(raw);
     const res = await c.query(
-      `INSERT INTO vector_table (raw_content, embedding) VALUES ($1, $2) RETURNING id`,
-      [raw, emb]
+      `INSERT INTO vector_table (index_name, raw_content, embedding) VALUES ($1, $2, $3) RETURNING id`,
+      [indexName, raw, emb]
     );
     return res.rows[0].id;
   });
 }
 
-export async function remove(id: string): Promise<void> {
+export async function remove(id: string, indexName?: string): Promise<void> {
   return withClient(async c => {
-    await c.query(`DELETE FROM vector_table WHERE id = $1`, [id]);
+    if (indexName) {
+      await c.query(`DELETE FROM vector_table WHERE id = $1 AND index_name = $2`, [id, indexName]);
+    } else {
+      await c.query(`DELETE FROM vector_table WHERE id = $1`, [id]);
+    }
   });
 }
 
 export async function search(options: SearchOptions): Promise<SearchResult[]> {
-  const { query, limit = 10, vectorOnly = false, weights = { vectorW: 0.7, textW: 0.3 } } = options;
+  const { query, limit = 10, vectorOnly = false, weights = { vectorW: 0.7, textW: 0.3 }, indexName = 'default' } = options;
   
   return withClient(async c => {
     const qvec = await embedTextOpenAI(query);
@@ -52,9 +57,10 @@ export async function search(options: SearchOptions): Promise<SearchResult[]> {
         SELECT id, raw_content, created_at, updated_at,
           1 - (embedding <=> $1::vector) AS cosine_sim
         FROM vector_table
+        WHERE index_name = $2
         ORDER BY embedding <=> $1::vector
-        LIMIT $2
-      `, [qvec, limit]);
+        LIMIT $3
+      `, [qvec, indexName, limit]);
       return res.rows;
     }
     
@@ -65,6 +71,7 @@ export async function search(options: SearchOptions): Promise<SearchResult[]> {
           1 - (embedding <=> $1::vector) AS cosine_sim,
           ts_rank_cd(content_tsv, plainto_tsquery('simple', $2)) AS ts_score
         FROM vector_table
+        WHERE index_name = $3
       ),
       normed AS (
         SELECT *,
@@ -73,11 +80,11 @@ export async function search(options: SearchOptions): Promise<SearchResult[]> {
         FROM scored
       )
       SELECT id, raw_content, created_at, updated_at, cosine_sim, ts_score,
-             ($3 * cos_norm + $4 * ts_norm) AS hybrid_score
+             ($4 * cos_norm + $5 * ts_norm) AS hybrid_score
       FROM normed
       ORDER BY hybrid_score DESC
-      LIMIT $5
-    `, [qvec, query, weights.vectorW, weights.textW, limit]);
+      LIMIT $6
+    `, [qvec, query, indexName, weights.vectorW, weights.textW, limit]);
     return res.rows;
   });
 }

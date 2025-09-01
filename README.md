@@ -890,7 +890,7 @@ Performance characteristics on a standard setup (PostgreSQL 15, 4 CPU cores, 8GB
 
 Planned features and improvements:
 
-- [ ] **Multi-language Support**: Enhanced tokenization for non-English content
+- [X] **Multi-language Support**: Enhanced tokenization for non-English content
 - [ ] **Custom Embedding Models**: Support for Hugging Face and other providers  
 - [ ] **Advanced Filtering**: Metadata-based search filtering
 - [ ] **Batch Reranking**: Optimize multiple query reranking

@@ -1,0 +1,93 @@
+name: CI/CD - Test, Build, and Publish to npm
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    name: Run tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test --silent
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack (sanity check)
+        run: npm pack --silent
+
+  publish:
+    name: Publish to npm
+    needs: test-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Determine version and publish tag
+        id: meta
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          IS_BETA=$(node -p "require('./package.json').version.includes('beta')")
+
+          echo "package=$PKG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [ "$IS_BETA" = "true" ]; then
+            echo "tag=beta" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip if version already published
+        id: check
+        env:
+          PKG: ${{ steps.meta.outputs.package }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          PUBLISHED=$(npm view "$PKG" versions --json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{let a=[];try{a=JSON.parse(d)}catch(e){};process.stdout.write(a.includes(process.env.VERSION).toString());});")
+          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+          if [ "$PUBLISHED" = "true" ]; then
+            echo "Version $VERSION already published. Skipping publish." && exit 0
+          fi
+
+      - name: Publish to npm
+        if: steps.check.outputs.published != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          TAG=${{ steps.meta.outputs.tag }}
+          if [ "$TAG" = "beta" ]; then
+            npm publish --tag beta
+          else
+            npm publish
+          fi
+

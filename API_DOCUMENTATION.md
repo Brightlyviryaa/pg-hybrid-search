@@ -1,5 +1,7 @@
 # 📖 pg-hybrid-search API Documentation
 
+NPM: https://www.npmjs.com/package/@brightly/pg-hybrid-search
+
 > Comprehensive API reference for pg-hybrid-search library
 
 ## 📋 Table of Contents
@@ -11,13 +13,8 @@
   - [index.add()](#indexadd)
   - [index.remove()](#indexremove)
   - [index.search()](#indexsearch)
-- [🔧 Functional API](#-functional-api)
-  - [add()](#add)
-  - [remove()](#remove)
-  - [search()](#search)
-  - [rerankVoyage()](#rerankvoyage)
-  - [searchHybridWithRerank()](#searchhybridwithrerank)
 - [📊 Sequence Diagrams](#-sequence-diagrams)
+- [🙏 Feedback & Saran](#-feedback--saran)
 - [🎯 Error Handling](#-error-handling)
 
 ---
@@ -106,8 +103,10 @@ client.index(indexName: string): PgHybridIndex
 #### **Response Example**:
 ```typescript
 PgHybridIndex {
-  add: (content: string) => Promise<string>,
+  add: (content: string, lang?: string) => Promise<string>,
   remove: (id: string) => Promise<void>,
+  delete: (id: string) => Promise<void>,   // alias of remove
+  destroy: () => Promise<number>,          // delete all rows in this index
   search: (options: ClientSearchOptions) => Promise<SearchResult[]>
 }
 ```
@@ -254,6 +253,46 @@ sequenceDiagram
 
 ---
 
+### `index.destroy()`
+
+Removes all documents from the specified index (by `index_name`).
+
+#### **Function Name**: `index.destroy`
+#### **Description**: Deletes all documents belonging to the index; useful for resetting a collection.
+
+#### **Payload**:
+```typescript
+index.destroy(): Promise<number>
+```
+
+#### **Response Example**:
+```typescript
+// Returns number of rows deleted
+42
+```
+
+#### **Usage Example**:
+```typescript
+const products = client.index("products");
+const deleted = await products.destroy();
+console.log(`Cleared products index: ${deleted} rows removed`);
+```
+
+#### **Sequence Diagram**:
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Index as PgHybridIndex
+    participant DB as PostgreSQL
+    
+    App->>Index: destroy()
+    Index->>DB: DELETE FROM vector_table WHERE index_name = $1
+    DB-->>Index: rowCount
+    Index-->>App: number of deleted rows
+```
+
+---
+
 ### `index.search()`
 
 Performs search operations on the specified index.
@@ -369,273 +408,8 @@ sequenceDiagram
 
 ## 🔧 Functional API
 
-### `add()`
-
-Direct function to add documents to an index.
-
-#### **Function Name**: `add`
-#### **Description**: Directly inserts a document into the specified index without using the client wrapper.
-
-#### **Payload**:
-```typescript
-add(raw: string, indexName?: string): Promise<string>
-
-// Parameters:
-// - raw: string - Raw text content to be indexed
-// - indexName: string - Index name (default: 'default')
-```
-
-#### **Response Example**:
-```typescript
-"123e4567-e89b-12d3-a456-426614174000"
-```
-
-#### **Usage Example**:
-```typescript
-import { add } from '@brightly/pg-hybrid-search';
-
-// Add to default index
-const docId1 = await add("Machine learning revolutionizes data analysis");
-
-// Add to specific index
-const docId2 = await add("PostgreSQL provides excellent search capabilities", "documents");
-
-console.log(`Documents added: ${docId1}, ${docId2}`);
-```
-
-#### **Sequence Diagram**:
-```mermaid
-sequenceDiagram
-    participant App as Application
-    participant Func as add()
-    participant Embed as OpenAI API
-    participant DB as PostgreSQL
-    
-    App->>Func: add(content, "movies")
-    Func->>Embed: embedTextOpenAI(content)
-    Embed-->>Func: embedding vector
-    Func->>DB: INSERT with index_name
-    DB-->>Func: UUID
-    Func-->>App: document ID
-```
-
----
-
-### `remove()`
-
-Direct function to remove documents from an index.
-
-#### **Function Name**: `remove`
-#### **Description**: Directly removes a document from the specified index by its UUID.
-
-#### **Payload**:
-```typescript
-remove(id: string, indexName?: string): Promise<void>
-
-// Parameters:
-// - id: string - UUID of the document to remove
-// - indexName: string - Index name for additional filtering (optional)
-```
-
-#### **Response Example**:
-```typescript
-// Returns: void
-undefined
-```
-
-#### **Usage Example**:
-```typescript
-import { remove } from '@brightly/pg-hybrid-search';
-
-// Remove from any index (by ID only)
-await remove("123e4567-e89b-12d3-a456-426614174000");
-
-// Remove from specific index (safer)
-await remove("987fcdeb-51a2-43d1-b678-123456789abc", "movies");
-
-console.log('Documents removed successfully');
-```
-
-#### **Sequence Diagram**:
-```mermaid
-sequenceDiagram
-    participant App as Application
-    participant Func as remove()
-    participant DB as PostgreSQL
-    
-    App->>Func: remove(id, "movies")
-    Func->>DB: DELETE WHERE id AND index_name
-    DB-->>Func: Deletion result
-    Func-->>App: void
-```
-
----
-
-### `search()`
-
-Direct function to perform search operations.
-
-#### **Function Name**: `search`
-#### **Description**: Executes search operations with full control over all parameters including index selection.
-
-#### **Payload**:
-```typescript
-search(options: SearchOptions): Promise<SearchResult[]>
-
-interface SearchOptions {
-  query: string;           // Search query text
-  limit?: number;          // Number of results (default: 10)
-  vectorOnly?: boolean;    // Vector-only search (default: false)
-  weights?: SearchWeights; // Custom weights (default: {vectorW: 0.7, textW: 0.3})
-  indexName?: string;      // Index to search (default: 'default')
-}
-```
-
-#### **Response Example**:
-```typescript
-[
-  {
-    id: "123e4567-e89b-12d3-a456-426614174000",
-    raw_content: "Advanced machine learning algorithms for data processing",
-    cosine_sim: 0.8923,
-    ts_score: 0.3456,
-    hybrid_score: 0.7681,
-    created_at: "2024-01-15T09:30:00Z",
-    updated_at: "2024-01-15T09:30:00Z"
-  }
-]
-```
-
-#### **Usage Example**:
-```typescript
-import { search } from '@brightly/pg-hybrid-search';
-
-// Search in default index
-const defaultResults = await search({
-  query: "machine learning algorithms",
-  limit: 5
-});
-
-// Search in specific index with custom weights
-const customResults = await search({
-  query: "space exploration",
-  limit: 10,
-  indexName: "movies",
-  weights: { vectorW: 0.9, textW: 0.1 }
-});
-
-// Vector-only search
-const vectorResults = await search({
-  query: "artificial intelligence",
-  vectorOnly: true,
-  indexName: "articles",
-  limit: 15
-});
-
-console.log(`Search results: ${vectorResults.length} found`);
-```
-
-#### **Sequence Diagram**:
-```mermaid
-sequenceDiagram
-    participant App as Application
-    participant Func as search()
-    participant Embed as OpenAI API
-    participant DB as PostgreSQL
-    
-    App->>Func: search({ query, indexName: "movies" })
-    Func->>Embed: embedTextOpenAI(query)
-    Embed-->>Func: query vector
-    
-    alt Vector Only
-        Func->>DB: Vector similarity query
-    else Hybrid Search
-        Func->>DB: Hybrid query (vector + BM25)
-    end
-    
-    DB-->>Func: Search results
-    Func-->>App: Ranked results
-```
-
----
-
-### `rerankVoyage()`
-
-AI-powered reranking using Voyage AI.
-
-#### **Function Name**: `rerankVoyage`
-#### **Description**: Uses Voyage AI's reranking model to improve search result relevance by re-ordering candidates based on semantic understanding.
-
-#### **Payload**:
-```typescript
-rerankVoyage(query: string, candidates: Candidate[]): Promise<Candidate[]>
-
-interface Candidate {
-  text: string;            // Document text content
-  [key: string]: any;      // Additional properties from search results
-}
-```
-
-#### **Response Example**:
-```typescript
-[
-  {
-    text: "Star Wars: A space opera epic with Jedi knights",
-    id: "123e4567-e89b-12d3-a456-426614174000",
-    rerank_score: 0.9456,
-    // ... other original properties
-  },
-  {
-    text: "The Matrix: Virtual reality and artificial intelligence",
-    id: "987fcdeb-51a2-43d1-b678-123456789abc",
-    rerank_score: 0.8234,
-    // ... other original properties
-  }
-]
-```
-
-#### **Usage Example**:
-```typescript
-import { rerankVoyage, search } from '@brightly/pg-hybrid-search';
-
-// First, get candidates from regular search
-const candidates = await search({
-  query: "space opera adventures",
-  limit: 20,
-  indexName: "movies"
-});
-
-// Convert to rerank format
-const rerankCandidates = candidates.map(result => ({
-  text: result.raw_content,
-  ...result
-}));
-
-// Apply AI reranking
-const reranked = await rerankVoyage("space opera adventures", rerankCandidates);
-
-console.log(`Reranked ${reranked.length} results by relevance`);
-reranked.slice(0, 5).forEach((result, index) => {
-  console.log(`${index + 1}. ${result.text.substring(0, 50)}... (Score: ${result.rerank_score})`);
-});
-```
-
-#### **Sequence Diagram**:
-```mermaid
-sequenceDiagram
-    participant App as Application
-    participant Func as rerankVoyage()
-    participant Voyage as Voyage AI API
-    
-    App->>Func: rerankVoyage(query, candidates)
-    Func->>Voyage: POST /v1/rerank
-    Note over Voyage: AI model analyzes<br/>query-document relevance
-    Voyage-->>Func: Relevance scores
-    Func->>Func: Sort by relevance_score
-    Func-->>App: Reranked candidates
-```
-
----
+Legacy functional API (add/remove/search, direct rerank) has been removed in v0.5.0-beta.
+Use the Modern Client API (`createClient().index(...).search({ ... })`) with `reranking: true` and `topNForRerank`.
 
 ### `searchHybridWithRerank()`
 
@@ -809,6 +583,17 @@ sequenceDiagram
 
 ---
 
+## 🙏 Feedback & Saran
+
+Ini adalah pertama kalinya saya membuat open‑source library dan mempublikasikannya ke npm. Jika ada senior/teman yang menemukan kekurangan, bug, atau ada saran perbaikan, mohon bantu tinggalkan komentar lewat GitHub Issues — saya sangat terbuka untuk belajar dan memperbaiki kualitas proyek ini.
+
+- Versi saat ini: v0.5.0‑beta — terbuka untuk feedback sebanyak‑banyaknya
+- GitHub Issues: https://github.com/Brightlyviryaa/pg-hybrid-search/issues
+
+Terima kasih atas semua masukan dan dukungannya! 🙌
+
+---
+
 ## 🎯 Error Handling
 
 ### Common Error Scenarios
@@ -918,7 +703,7 @@ EMBED_MODEL=text-embedding-3-small  # Optional, default model
 
 # Voyage AI Configuration (Optional - for reranking)
 VOYAGE_API_KEY=pa-your-voyage-api-key-here
-RERANK_MODEL=rerank-2  # Optional, default rerank model
+RERANK_MODEL=rerank-2.5-lite  # Optional, default rerank model
 ```
 
 ### Database Initialization

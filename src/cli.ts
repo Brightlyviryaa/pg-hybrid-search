@@ -16,7 +16,7 @@ function loadSQL(file: string): string {
 program
   .name('pg-hybrid')
   .description('CLI untuk pg-hybrid-search library')
-  .version('0.3.0');
+  .version('0.5.0-beta');
 
 program
   .command('init')

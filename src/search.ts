@@ -1,6 +1,11 @@
 import { withClient } from './db.js';
 import { embedTextOpenAI } from './embedding.js';
 
+function toVectorLiteral(vec: number[]): string {
+  // pgvector expects a string literal like: [0.1,0.2,...]
+  return `[${vec.join(',')}]`;
+}
+
 export interface SearchResult {
   id: string;
   raw_content: string;
@@ -24,13 +29,19 @@ export interface SearchOptions {
   indexName?: string;
 }
 
-export async function add(raw: string, indexName: string = 'default'): Promise<string> {
+export async function add(raw: string, indexName: string = 'default', lang?: string): Promise<string> {
   return withClient(async c => {
     const emb = await embedTextOpenAI(raw);
-    const res = await c.query(
-      `INSERT INTO vector_table (index_name, raw_content, embedding) VALUES ($1, $2, $3) RETURNING id`,
-      [indexName, raw, emb]
-    );
+    const vecLit = toVectorLiteral(emb);
+    const res = lang
+      ? await c.query(
+          `INSERT INTO vector_table (index_name, raw_content, embedding, lang) VALUES ($1, $2, $3::vector, $4) RETURNING id`,
+          [indexName, raw, vecLit, lang]
+        )
+      : await c.query(
+          `INSERT INTO vector_table (index_name, raw_content, embedding) VALUES ($1, $2, $3::vector) RETURNING id`,
+          [indexName, raw, vecLit]
+        );
     return res.rows[0].id;
   });
 }
@@ -45,11 +56,19 @@ export async function remove(id: string, indexName?: string): Promise<void> {
   });
 }
 
+// Destroy an entire index (delete all rows with the same index_name)
+export async function destroy(indexName: string): Promise<number> {
+  return withClient(async c => {
+    const res = await c.query(`DELETE FROM vector_table WHERE index_name = $1`, [indexName]);
+    return res.rowCount || 0;
+  });
+}
+
 export async function search(options: SearchOptions): Promise<SearchResult[]> {
   const { query, limit = 10, vectorOnly = false, weights = { vectorW: 0.7, textW: 0.3 }, indexName = 'default' } = options;
   
   return withClient(async c => {
-    const qvec = await embedTextOpenAI(query);
+    const qvec = toVectorLiteral(await embedTextOpenAI(query));
     
     if (vectorOnly) {
       // Pure vector search
@@ -69,7 +88,10 @@ export async function search(options: SearchOptions): Promise<SearchResult[]> {
       WITH scored AS (
         SELECT id, raw_content, created_at, updated_at,
           1 - (embedding <=> $1::vector) AS cosine_sim,
-          ts_rank_cd(content_tsv, plainto_tsquery('simple', $2)) AS ts_score
+          ts_rank_cd(
+            content_tsv,
+            websearch_to_tsquery(pg_hybrid_safe_regconfig(lang), $2)
+          ) AS ts_score
         FROM vector_table
         WHERE index_name = $3
       ),

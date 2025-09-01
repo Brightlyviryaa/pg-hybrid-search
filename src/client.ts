@@ -1,4 +1,4 @@
-import { add, remove, search } from './search.js';
+import { add, remove, search, destroy as destroyIndex } from './search.js';
 import { searchHybridWithRerank } from './rerank.js';
 import type { SearchResult, SearchWeights } from './search.js';
 
@@ -14,12 +14,17 @@ export interface ClientSearchOptions {
 export class PgHybridIndex {
   constructor(private indexName: string) {}
 
-  async add(content: string): Promise<string> {
-    return add(content, this.indexName);
+  async add(content: string, lang?: string): Promise<string> {
+    return add(content, this.indexName, lang);
   }
 
   async remove(id: string): Promise<void> {
     return remove(id, this.indexName);
+  }
+
+  // Alias for remove, matching common naming
+  async delete(id: string): Promise<void> {
+    return this.remove(id);
   }
 
   async search(options: ClientSearchOptions): Promise<SearchResult[]> {
@@ -36,6 +41,10 @@ export class PgHybridIndex {
       weights,
       indexName: this.indexName
     });
+  }
+
+  async destroy(): Promise<number> {
+    return destroyIndex(this.indexName);
   }
 }
 

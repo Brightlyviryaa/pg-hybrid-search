@@ -3,11 +3,13 @@
 
 # pg-hybrid-search
 
+Version: v0.5.0 (Beta) — Open for feedback
+
 **🚀 Advanced Hybrid Search Toolkit for PostgreSQL**
 
 *Seamlessly combine vector similarity, BM25 full-text search, and AI-powered reranking*
 
-[![npm version](https://badge.fury.io/js/%40brightly%2Fpg-hybrid-search.svg)](https://badge.fury.io/js/%40brightly%2Fpg-hybrid-search)
+[![npm version](https://img.shields.io/npm/v/%40brightly%2Fpg-hybrid-search.svg)](https://www.npmjs.com/package/@brightly/pg-hybrid-search)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
@@ -21,6 +23,8 @@
 
 </div>
 
+NPM: https://www.npmjs.com/package/@brightly/pg-hybrid-search
+
 ## 📋 Table of Contents
 
 - [🌟 Overview](#-overview)
@@ -31,6 +35,7 @@
 - [📚 API Reference](#-api-reference)
 - [📖 Complete API Documentation](API_DOCUMENTATION.md) ⭐
 - [🖥 CLI Tools](#-cli-tools)
+- [🆕 What's New (v0.5.0 Beta)](#-whats-new-v050-beta)
 - [💡 Usage Examples](#-usage-examples)
 - [🏗 Database Schema](#-database-schema)
 - [⚡ Performance Optimization](#-performance-optimization)
@@ -300,7 +305,7 @@ EMBED_MODEL=text-embedding-3-small  # Optional: default model
 
 # Voyage AI Configuration (Optional - for reranking)
 VOYAGE_API_KEY=pa-your-voyage-api-key-here
-RERANK_MODEL=rerank-2  # Optional: default rerank model
+RERANK_MODEL=rerank-2.5-lite  # Optional: default rerank model
 ```
 
 ### Database Setup
@@ -335,10 +340,15 @@ const client = createClient();
 const index = client.index("your-index-name");
 
 // Add documents
-const documentId = await index.add("Your document content");
+// Optional: set language per document (improves BM25 in multilingual apps)
+const documentId = await index.add("Your document content", "indonesian");
 
 // Remove documents  
 await index.remove(documentId);
+
+// Destroy an index (delete all rows with this index name)
+const deleted = await index.destroy();
+console.log(`Index cleared: ${deleted} rows removed`);
 ```
 
 #### Search Operations
@@ -384,85 +394,7 @@ interface SearchWeights {
 
 ---
 
-### Simplified Functional API
-
-#### Import Statement
-```typescript
-import {
-  add,
-  remove,
-  search,
-  type SearchResult,
-  type SearchWeights,
-  type SearchOptions
-} from '@brightly/pg-hybrid-search';
-```
-
----
-
-#### `add(content: string): Promise<string>`
-
-Insert a new document with automatic embedding generation.
-
-```typescript
-const documentId = await add(
-  "Artificial intelligence transforms modern business operations"
-);
-console.log(`Document inserted with ID: ${documentId}`);
-```
-
-**Parameters**:
-- `content` (string): Raw text content to be indexed
-
-**Returns**: Promise<string> - UUID of the inserted document
-
----
-
-#### `search(options: SearchOptions): Promise<SearchResult[]>`
-
-Unified search function that supports both vector-only and hybrid search modes.
-
-```typescript
-// Hybrid search (default)
-const hybridResults = await search({
-  query: "AI machine learning",
-  limit: 5,
-  weights: { vectorW: 0.7, textW: 0.3 }
-});
-
-// Vector-only search
-const vectorResults = await search({
-  query: "machine learning algorithms",
-  limit: 10,
-  vectorOnly: true
-});
-```
-
-**Parameters**:
-- `options.query` (string): Search query text
-- `options.limit` (number, optional): Number of results (default: 10)
-- `options.vectorOnly` (boolean, optional): Use vector search only (default: false)
-- `options.weights` (SearchWeights, optional): Scoring weights (default: `{vectorW: 0.7, textW: 0.3}`)
-
----
-
-#### `remove(id: string): Promise<void>`
-
-Remove a document by its UUID.
-
-```typescript
-await remove("123e4567-e89b-12d3-a456-426614174000");
-```
-
-#### Legacy Functions (Still Available)
-
-```typescript
-// Legacy functions for backward compatibility
-import { upsertDocument, deleteById } from '@brightly/pg-hybrid-search';
-
-await upsertDocument("content");  // Same as add()
-await deleteById("uuid");         // Same as remove()
-```
+<!-- Simplified/legacy functional API removed in v0.5.0-beta. Use Modern Client API. -->
 
 ### Type Definitions
 
@@ -483,10 +415,6 @@ interface HybridWeights {
   textW: number;              // Text search weight (0-1)
 }
 
-interface Candidate {
-  text: string;
-  [key: string]: any;
-}
 ```
 
 ## 🖥 CLI Tools
@@ -633,47 +561,52 @@ const vectorResults = await search({
 ### Enterprise Pipeline with Reranking
 
 ```typescript
-import { searchHybridWithRerank } from '@brightly/pg-hybrid-search';
+import { createClient } from '@brightly/pg-hybrid-search';
 
 async function enterpriseSearch(query: string) {
+  const client = createClient();
+  const knowledge = client.index('knowledge');
   // High-precision search with AI reranking
-  const results = await searchHybridWithRerank(
+  const results = await knowledge.search({
     query,
-    15,    // Return top 15 results
-    100    // Rerank from top 100 candidates
-  );
-  
+    limit: 15,
+    reranking: true,
+    topNForRerank: 100
+  });
   return results.map((result, index) => ({
     rank: index + 1,
     id: result.id,
     content: result.raw_content,
-    relevanceScore: result.rerank_score || result.hybrid_score,
+    relevanceScore: result.rerank_score ?? result.hybrid_score,
     confidence: result.rerank_score ? 'high' : 'medium'
   }));
 }
 
-const enterpriseResults = await enterpriseSearch("sustainable technology solutions");
+const enterpriseResults = await enterpriseSearch('sustainable technology solutions');
 ```
 
 ### Batch Operations
 
 ```typescript
-// Efficient bulk insertion
+import { createClient } from '@brightly/pg-hybrid-search';
+
+// Efficient bulk insertion using Modern Client API
+const client = createClient();
+const docs = client.index('bulk');
+
 const documents = [
-  "Document 1 content...",
-  "Document 2 content...", 
-  "Document 3 content..."
+  'Document 1 content...',
+  'Document 2 content...',
+  'Document 3 content...'
 ];
 
-const insertPromises = documents.map(doc => upsertDocument(doc));
-const documentIds = await Promise.all(insertPromises);
-
-console.log(`Inserted ${documentIds.length} documents`);
+const ids = await Promise.all(documents.map(text => docs.add(text, 'english')));
+console.log(`Inserted ${ids.length} documents`);
 ```
 
 ## 🏗 Database Schema
 
-The library automatically creates and manages the following schema:
+The library automatically creates and manages the following schema (v0.5.0 Beta):
 
 ```sql
 -- Main table for storing documents and embeddings with multi-index support
@@ -681,10 +614,9 @@ CREATE TABLE vector_table (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   index_name TEXT NOT NULL DEFAULT 'default',
   raw_content TEXT NOT NULL,
+  lang TEXT NOT NULL DEFAULT 'simple',
   embedding VECTOR(1536) NOT NULL,
-  content_tsv TSVECTOR GENERATED ALWAYS AS (
-    to_tsvector('simple', coalesce(raw_content,''))
-  ) STORED,
+  content_tsv TSVECTOR,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -699,6 +631,31 @@ CREATE INDEX idx_vector_table_tsv
 
 CREATE INDEX idx_vector_table_index_name
   ON vector_table (index_name);
+
+-- Keep timestamps fresh
+CREATE OR REPLACE FUNCTION set_updated_at_pg_hybrid() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_set_updated_at_pg_hybrid ON vector_table;
+CREATE TRIGGER trg_set_updated_at_pg_hybrid BEFORE UPDATE ON vector_table
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at_pg_hybrid();
+
+-- Maintain multilingual TSV per-row
+CREATE OR REPLACE FUNCTION update_content_tsv_pg_hybrid() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.content_tsv := to_tsvector(pg_hybrid_safe_regconfig(NEW.lang), coalesce(NEW.raw_content, ''));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_update_content_tsv_pg_hybrid ON vector_table;
+CREATE TRIGGER trg_update_content_tsv_pg_hybrid
+  BEFORE INSERT OR UPDATE ON vector_table
+  FOR EACH ROW EXECUTE FUNCTION update_content_tsv_pg_hybrid();
 ```
 
 ### Schema Features
@@ -706,9 +663,36 @@ CREATE INDEX idx_vector_table_index_name
 - **UUID Primary Keys**: Globally unique identifiers
 - **Multi-Index Support**: Isolated document collections with `index_name` field
 - **Vector Storage**: 1536-dimensional embeddings (OpenAI standard)
-- **Generated TSVector**: Automatic full-text search indexing
+- **Multilingual TSVector**: Per-row language via `lang` with GIN index
 - **Timestamps**: Automatic creation and update tracking
 - **Optimized Indexes**: IVFFlat for vectors, GIN for text search, B-tree for index names
+
+### Upgrade Guide (pre-0.5.0 → 0.5.0)
+
+If you already have data, run a safe migration:
+
+```sql
+ALTER TABLE vector_table ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT 'simple';
+
+-- Recreate content_tsv as a regular column if it was generated
+DROP INDEX IF EXISTS idx_vector_table_tsv;
+ALTER TABLE vector_table DROP COLUMN IF EXISTS content_tsv;
+ALTER TABLE vector_table ADD COLUMN content_tsv TSVECTOR;
+
+-- Recreate trigger
+-- (Use the function definitions shown in the schema above)
+```
+
+Re-run CLI init (idempotent) to ensure functions/triggers exist:
+
+```bash
+npx @brightly/pg-hybrid-search init
+```
+
+### Query Notes
+
+- Hybrid search computes text score with: `websearch_to_tsquery(pg_hybrid_safe_regconfig(lang), $query)`
+- Provide `lang` at insert time for better BM25 (e.g., `'english'`, `'indonesian'`)
 
 ## ⚡ Performance Optimization
 
@@ -751,6 +735,25 @@ setInterval(() => {
 3. **Optimize Rerank Usage**: Use `topNForRerank` between 50-200 for best balance
 4. **Monitor Query Performance**: Use `EXPLAIN ANALYZE` for slow queries
 
+### Debugging
+
+- Set `PG_HYBRID_DEBUG=1` or `PG_HYBRID_DEBUG_RERANK=1` to print light rerank diagnostics
+  - Shows selected rerank model and usage payload when available
+  - Useful for tuning `topNForRerank` and verifying model selection
+
+### Example App (Seeding + Isolation)
+
+```bash
+# Run the bundled example that seeds three indexes (A/B/C)
+npm run example
+
+# Shows:
+# - Per-index seeding with optional language
+# - Isolation checks (searching A won’t return B/C)
+# - Rerank demo with topNForRerank=50
+# - Hybrid weights customization
+```
+
 ## 🔧 Development
 
 ### Local Development Setup
@@ -771,7 +774,7 @@ cp .env.example .env
 # Edit .env with your database credentials
 
 # Initialize test database
-npm run build && node dist/cli.js init
+npm run build && node dist/src/cli.js init
 ```
 
 ### Project Structure
@@ -803,7 +806,7 @@ pg-hybrid-search/
 npm run build
 
 # Test CLI functionality
-npm run build && node dist/cli.js init
+npm run build && node dist/src/cli.js init
 
 # Test basic operations (requires test database)
 node -e "
@@ -852,6 +855,16 @@ Need help or want to connect with other users?
 ### Troubleshooting
 
 Common issues and solutions:
+
+## 🆕 What's New (v0.5.0 Beta)
+
+- Multilingual BM25 via per-row `lang` column
+  - `content_tsv` dihitung oleh trigger dengan `to_tsvector(pg_hybrid_safe_regconfig(lang), raw_content)`
+  - Query hybrid memakai `websearch_to_tsquery(pg_hybrid_safe_regconfig(lang), query)`
+- Exposed hybrid weights in search: `{ weights: { vectorW, textW } }`
+- Configurable rerank candidate pool: `{ topNForRerank }` (contoh: 50–200)
+- Example seeding multi-index + isolasi index (A/B/C): `npm run example`
+- CLI bin diperbaiki untuk `npx @brightly/pg-hybrid-search <cmd>`
 
 | Issue | Solution |
 |-------|----------|

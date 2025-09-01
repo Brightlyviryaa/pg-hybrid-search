@@ -5,11 +5,17 @@ export interface Candidate {
   [key: string]: any;
 }
 
+export interface VoyageRerankResponseItem {
+  index: number;
+  relevance_score: number;
+  document?: string;
+}
+
 export interface VoyageRerankResponse {
-  results: Array<{
-    index: number;
-    relevance_score: number;
-  }>;
+  object?: string;
+  data: VoyageRerankResponseItem[];
+  model?: string;
+  usage?: Record<string, any>;
 }
 
 export async function rerankVoyage(query: string, candidates: Candidate[]): Promise<Candidate[]> {
@@ -29,7 +35,7 @@ export async function rerankVoyage(query: string, candidates: Candidate[]): Prom
     body: JSON.stringify({
       query: query,
       documents: texts,
-      model: process.env.RERANK_MODEL || "rerank-2",
+      model: process.env.RERANK_MODEL || "rerank-2.5-lite",
       top_k: candidates.length
     })
   });
@@ -39,13 +45,38 @@ export async function rerankVoyage(query: string, candidates: Candidate[]): Prom
   }
 
   const data = await res.json() as VoyageRerankResponse;
-  
-  return data.results
-    .sort((a, b) => b.relevance_score - a.relevance_score)
-    .map(result => ({
-      ...candidates[result.index],
-      rerank_score: result.relevance_score
-    }));
+
+  if (!data || !Array.isArray(data.data)) {
+    throw new Error("Voyage rerank response malformed: missing 'data' array");
+    }
+
+  if (process.env.PG_HYBRID_DEBUG_RERANK === '1' || process.env.PG_HYBRID_DEBUG === '1') {
+    try {
+      // Lightweight debug info
+      // eslint-disable-next-line no-console
+      console.log('[pg-hybrid] rerank model:', data.model, 'candidates:', candidates.length);
+      if (data.usage) {
+        // eslint-disable-next-line no-console
+        console.log('[pg-hybrid] rerank usage:', data.usage);
+      }
+    } catch {}
+  }
+
+  const merged: Candidate[] = data.data.map(item => ({
+    ...candidates[item.index],
+    rerank_score: item.relevance_score
+  } as Candidate));
+
+  // Tie-breaker: if rerank_score is close, use hybrid_score/cosine_sim as secondary criterion
+  merged.sort((a, b) => {
+    const diff = (b.rerank_score ?? 0) - (a.rerank_score ?? 0);
+    if (Math.abs(diff) > 1e-6) return diff;
+    const aFallback = (a.hybrid_score ?? a.cosine_sim ?? 0);
+    const bFallback = (b.hybrid_score ?? b.cosine_sim ?? 0);
+    return bFallback - aFallback;
+  });
+
+  return merged;
 }
 
 export async function searchHybridWithRerank(
